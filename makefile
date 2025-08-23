@@ -31,7 +31,7 @@ OUTPUT = ./local_build/methylish
 
 # Checks if the compiler exists or not.
 check_compiler:
-	@if [ ! -f "$(CC)" ]; then \
+	@if [ ! "command -v $(CC)" ]; then \
 		echo -e "\e[0;31mmake: Error: Clang is not found. Please install it or edit the makefile to proceed.\e[0;37m"; \
 		exit 1; \
 	fi

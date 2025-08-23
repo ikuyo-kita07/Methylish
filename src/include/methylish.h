@@ -8,6 +8,7 @@
 
 // global variables
 extern int lastStatus;
+extern char *HostAndUserName;
 
 // Functions:
 char *getCommandFromUserConsole();
