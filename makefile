@@ -46,7 +46,7 @@ methylish: check_compiler
 # cleans the build artifacts.
 clean:
 	@echo "\e[0;33mmake: Info: Cleaning build artifacts...\e[0;37m"
-	@rm -f $(OUTPUT) $(ERR_LOG)
+	@rm -f $(OUTPUT) $(ERR_LOG) methylish.log
 	@echo "\e[0;33mmake: Info: Clean finished.\e[0;37m"
 
 .PHONY: check_compiler methylish clean

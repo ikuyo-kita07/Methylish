@@ -3,15 +3,14 @@
 char *getCommandFromUserConsole(void) {
     char *command = malloc(256);
     if(command == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
-        exit(EXIT_FAILURE);
+        abortInstance("Failed to allocate memory for user input.");
     }
     if(fgets(command, 256, stdin) != NULL) {
         size_t len = strlen(command);
         if(len > 0 && command[len - 1] == '\n') command[len - 1] = '\0';
     }
     else {
-        free(command);
+        safeClean((void**)command);
         return NULL;
     }
     return command;
@@ -25,7 +24,7 @@ void runThatCommand(void) {
     if(commandFromConsole == NULL) return;
     if(strcmp(commandFromConsole, "exit") == 0) {
         printf("Exiting methylish shell. Goodbye!\n");
-        free(commandFromConsole);
+        safeClean((void**)commandFromConsole);
         exit(lastStatus);
     }
     else if(strncmp(commandFromConsole, "cd", 2) == 0) {
@@ -56,15 +55,15 @@ void runThatCommand(void) {
         }
         printf("%s", text);
     }
-    else if(strcmp(commandFromConsole, "lastReturnCode") == 0) printf("%d\n", lastStatus);
+    else if(strcmp(commandFromConsole, "lastReturnCode") == 0 || strcmp(commandFromConsole, "lastReturnStatus") == 0) printf("%d\n", lastStatus);
     else if(strncmp(commandFromConsole, "clear", 5) == 0 || strncmp(commandFromConsole, "cls", 3) == 0) printf("\033c\n");
     else {
         switch(fork()) {
             case -1:
-                exit(EXIT_FAILURE);
+                abortInstance("Failed to fork to run the command");
             case 0:
                 execl("/bin/bash", "bash", "-c", commandFromConsole, (char *)NULL);
-                exit(EXIT_FAILURE);
+                abortInstance("Failed to run the command");
             default: {
                 int status;
                 wait(&status);
@@ -73,5 +72,67 @@ void runThatCommand(void) {
             }
         }
     }
-    free(commandFromConsole);
+    safeClean((void**)commandFromConsole);
+}
+
+void safeClean(void* Pointer) {
+    if(Pointer) free(Pointer);
+    else MethylishLog(ERROR, "Failed to clear the memory of the given variable, reason: \"NULL\" ");
+}
+
+void abortInstance(const char* message) {
+    MethylishLog(ABORT, message);
+    safeClean((void**)HostAndUserName);
+    exit(EXIT_FAILURE);
+}
+
+void MethylishLog(enum elogLevel Log, const char *message) {
+    FILE *outputPath;
+    if(throwLogsToSTD) {
+        if(Log == WARN || Log == ERROR || Log == DEBUG) outputPath = stderr;
+        else outputPath = stdout;
+        switch(Log) {
+            case INFO:
+                fprintf(outputPath, "[\e[1;34mINFO\e[0m] %s\n", message);
+            break;
+            case WARN:
+                fprintf(outputPath, "[\e[1;33mWARNING\e[0m] %s\n", message);
+            break;
+            case ERROR:
+                fprintf(outputPath, "[\e[1;31mERROR\e[0m] %s\n", message);
+            break;
+            case DEBUG:
+                fprintf(outputPath, "[\e[1;32mDEBUG\e[0m] %s\n", message);
+            break;
+            case ABORT:
+                fprintf(outputPath, "[\e[1;32mABORT\e[0m] %s\n", message);
+            break;
+            default:
+                fprintf(outputPath, "[\e[1;34mUNKNOWN\e[0m] %s\n", message);
+        }
+    }
+    else {
+        outputPath = fopen(logfile, "a");
+        if(!outputPath) abortInstance("Failed to setup MethylishLog function, exiting..");
+        switch(Log) {
+            case INFO:
+                fprintf(outputPath, "INFO: %s\n", message);
+            break;
+            case WARN:
+                fprintf(outputPath, "WARN: %s\n", message);
+            break;
+            case ERROR:
+                fprintf(outputPath, "ERROR: %s\n", message);
+            break;
+            case DEBUG:
+                fprintf(outputPath, "DEBUG: %s\n", message);
+            break;
+            case ABORT:
+                fprintf(outputPath, "ABORT: %s\n", message);
+            break;
+            default:
+                fprintf(outputPath, "UNKNOWN: %s\n", message);
+        }
+    }
+    if(!throwLogsToSTD) fclose(outputPath);
 }
