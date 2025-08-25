@@ -15,11 +15,12 @@ bool throwLogsToSTD = false;
 int main() {
     FILE *clearTheLogFile = fopen(logfile, "w");
     if(clearTheLogFile) fclose(clearTheLogFile);
-    MethylishLog(INFO, "init: Methylish started!!");
+    MethylishLog(INFO, "main(0): init: Methylish started!!");
     HostAndUserName = malloc(100);
     if(HostAndUserName == NULL) exit(EXIT_FAILURE);
     FILE *fp = popen("echo $(whoami)@$(hostname)", "r");
     if(fp == NULL) {
+        MethylishLog(ERROR, "main(1): Failed to fetch host and username.");
         free(HostAndUserName);
         exit(EXIT_FAILURE);
     }
@@ -28,7 +29,12 @@ int main() {
         if(len > 0 && HostAndUserName[len - 1] == '\n') HostAndUserName[len - 1] = '\0';
     }
     pclose(fp);
+    // SIGNIT!!
+    if(signal(SIGINT, handle_sigint) == SIG_ERR) {
+        perror("Failed to register SIGINT handler");
+        return 1;
+    }
     while(true) runThatCommand();
-    if(HostAndUserName) safeClean((void**)&HostAndUserName);
+    safeClean((void**)&HostAndUserName);
     return lastStatus;
 }

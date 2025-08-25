@@ -15,3 +15,4 @@ make methylish
 - **lastReturnCode|lastReturnStatus**: Prints the last return value from a previous command.
 - **cd**: Changes the current directory.
 - **clear|cls**: Clears the terminal screen.
+- **pwd|cwd**: Prints the current working directory.

@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <signal.h>
+#include <stdarg.h>
 
 // global variables
 extern int lastStatus;
@@ -27,4 +29,5 @@ char *getCommandFromUserConsole(void);
 void runThatCommand(void);
 void safeClean(void* Pointer);
 void abortInstance(const char* message);
-void MethylishLog(enum elogLevel Log, const char *message);
+void MethylishLog(enum elogLevel Log, const char *message, ...);
+void handle_sigint(int signum);

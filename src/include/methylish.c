@@ -24,6 +24,7 @@ void runThatCommand(void) {
     if(commandFromConsole == NULL) return;
     if(strcmp(commandFromConsole, "exit") == 0) {
         printf("Exiting methylish shell. Goodbye!\n");
+        MethylishLog(INFO, "runthatCommand(0): Quit methylish shell");
         safeClean((void**)commandFromConsole);
         exit(lastStatus);
     }
@@ -31,7 +32,8 @@ void runThatCommand(void) {
         char *path = commandFromConsole + 2;
         while(*path == ' ') path++;
         if(*path == '\0') path = getenv("HOME");
-        if(chdir(path) != 0) perror("Failed to change directory");
+        if(chdir(path) != 0) MethylishLog(ERROR, "runthatCommand(1): Failed to change directory");
+        safeClean((void**)path);
     }
     else if(strncmp(commandFromConsole, "println", 7) == 0) {
         char *text = commandFromConsole + 7;
@@ -43,6 +45,7 @@ void runThatCommand(void) {
             if(end) *end = '\0';
         }
         printf("%s\n", text);
+        safeClean((void**)text);
     }
     else if(strncmp(commandFromConsole, "print", 5) == 0) {
         char *text = commandFromConsole + 5;
@@ -54,9 +57,14 @@ void runThatCommand(void) {
             if(end) *end = '\0';
         }
         printf("%s", text);
+        safeClean((void**)text);
     }
     else if(strcmp(commandFromConsole, "lastReturnCode") == 0 || strcmp(commandFromConsole, "lastReturnStatus") == 0) printf("%d\n", lastStatus);
     else if(strncmp(commandFromConsole, "clear", 5) == 0 || strncmp(commandFromConsole, "cls", 3) == 0) printf("\033c\n");
+    else if(strncmp(commandFromConsole, "pwd", 3) == 0 || strncmp(commandFromConsole, "cwd", 3) == 0) {
+        char wd[1024];
+        printf("%s\n", getcwd(wd, sizeof(wd)));
+    }
     else {
         switch(fork()) {
             case -1:
@@ -69,6 +77,7 @@ void runThatCommand(void) {
                 wait(&status);
                 if(WIFEXITED(status)) lastStatus = WEXITSTATUS(status);
                 else lastStatus = -1;
+                if(lastStatus == 127) MethylishLog(ERROR, "runThatCommand(2): Unknown command %s", commandFromConsole);
             }
         }
     }
@@ -77,7 +86,7 @@ void runThatCommand(void) {
 
 void safeClean(void* Pointer) {
     if(Pointer) free(Pointer);
-    else MethylishLog(ERROR, "Failed to clear the memory of the given variable, reason: \"NULL\" ");
+    else MethylishLog(ERROR, "safeClean(): Failed to clear the memory of the given variable, reason: \"NULL\" ");
 }
 
 void abortInstance(const char* message) {
@@ -86,53 +95,67 @@ void abortInstance(const char* message) {
     exit(EXIT_FAILURE);
 }
 
-void MethylishLog(enum elogLevel Log, const char *message) {
+void MethylishLog(enum elogLevel Log, const char *message, ...) {
+    va_list args;
+    va_start(args, message);
     FILE *outputPath;
     if(throwLogsToSTD) {
         if(Log == WARN || Log == ERROR || Log == DEBUG) outputPath = stderr;
         else outputPath = stdout;
         switch(Log) {
             case INFO:
-                fprintf(outputPath, "[\e[1;34mINFO\e[0m] %s\n", message);
+                fprintf(outputPath, "[\e[1;34mINFO\e[0m] ");
             break;
             case WARN:
-                fprintf(outputPath, "[\e[1;33mWARNING\e[0m] %s\n", message);
+                fprintf(outputPath, "[\e[1;33mWARNING\e[0m] ");
             break;
             case ERROR:
-                fprintf(outputPath, "[\e[1;31mERROR\e[0m] %s\n", message);
+                fprintf(outputPath, "[\e[1;31mERROR\e[0m] ");
             break;
             case DEBUG:
-                fprintf(outputPath, "[\e[1;32mDEBUG\e[0m] %s\n", message);
+                fprintf(outputPath, "[\e[1;32mDEBUG\e[0m] ");
             break;
             case ABORT:
-                fprintf(outputPath, "[\e[1;32mABORT\e[0m] %s\n", message);
+                fprintf(outputPath, "[\e[1;35mABORT\e[0m] ");
             break;
             default:
-                fprintf(outputPath, "[\e[1;34mUNKNOWN\e[0m] %s\n", message);
+                fprintf(outputPath, "[\e[1;34mUNKNOWN\e[0m] ");
         }
     }
     else {
         outputPath = fopen(logfile, "a");
-        if(!outputPath) abortInstance("Failed to setup MethylishLog function, exiting..");
+        if(!outputPath) {
+            va_end(args);
+            abortInstance("MethylishLog(): Failed to setup MethylishLog function, exiting..");
+        }
         switch(Log) {
             case INFO:
-                fprintf(outputPath, "INFO: %s\n", message);
+                fprintf(outputPath, "INFO: ");
             break;
             case WARN:
-                fprintf(outputPath, "WARN: %s\n", message);
+                fprintf(outputPath, "WARN: ");
             break;
             case ERROR:
-                fprintf(outputPath, "ERROR: %s\n", message);
+                fprintf(outputPath, "ERROR: ");
             break;
             case DEBUG:
-                fprintf(outputPath, "DEBUG: %s\n", message);
+                fprintf(outputPath, "DEBUG: ");
             break;
             case ABORT:
-                fprintf(outputPath, "ABORT: %s\n", message);
+                fprintf(outputPath, "ABORT: ");
             break;
             default:
-                fprintf(outputPath, "UNKNOWN: %s\n", message);
+                fprintf(outputPath, "UNKNOWN: ");
         }
     }
+    vfprintf(outputPath, message, args);
+    fprintf(outputPath, "\n");
     if(!throwLogsToSTD) fclose(outputPath);
+    va_end(args);
+}
+
+void handle_sigint(int signum) {
+    MethylishLog(DEBUG, "handle_sigint(0): signum: %d", signum);
+    if(signum == 2) MethylishLog(INFO, "handle_sigint(1): User force-closed the application.");
+    abortInstance("Closing the program...");
 }
