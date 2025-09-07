@@ -2,9 +2,7 @@
 
 char *getCommandFromUserConsole(void) {
     char *command = malloc(256);
-    if(command == NULL) {
-        abortInstance("Failed to allocate memory for user input.");
-    }
+    if(command == NULL) abortInstance("getCommandFromUserConsole()", "Failed to allocate memory for user input.");
     if(fgets(command, 256, stdin) != NULL) {
         size_t len = strlen(command);
         if(len > 0 && command[len - 1] == '\n') command[len - 1] = '\0';
@@ -24,7 +22,7 @@ void runThatCommand(void) {
     if(commandFromConsole == NULL) return;
     if(strcmp(commandFromConsole, "exit") == 0) {
         printf("Exiting methylish shell. Goodbye!\n");
-        MethylishLog(INFO, "runthatCommand(0): Quit methylish shell");
+        MethylishLog(INFO, "runthatCommand(0)", "Quit methylish shell");
         safeClean((void**)commandFromConsole);
         exit(lastStatus);
     }
@@ -32,7 +30,7 @@ void runThatCommand(void) {
         char *path = commandFromConsole + 2;
         while(*path == ' ') path++;
         if(*path == '\0') path = getenv("HOME");
-        if(chdir(path) != 0) MethylishLog(ERROR, "runthatCommand(1): Failed to change directory");
+        if(chdir(path) != 0) MethylishLog(ERROR, "runthatCommand(1)", "Failed to change directory");
         safeClean((void**)path);
     }
     else if(strncmp(commandFromConsole, "println", 7) == 0) {
@@ -68,16 +66,16 @@ void runThatCommand(void) {
     else {
         switch(fork()) {
             case -1:
-                abortInstance("Failed to fork to run the command");
+                abortInstance("runThatCommand(2)", "Failed to fork to run the command");
             case 0:
                 execl("/bin/bash", "bash", "-c", commandFromConsole, (char *)NULL);
-                abortInstance("Failed to run the command");
+                abortInstance("runThatCommand(3)", "Failed to run the command");
             default: {
                 int status;
                 wait(&status);
                 if(WIFEXITED(status)) lastStatus = WEXITSTATUS(status);
                 else lastStatus = -1;
-                if(lastStatus == 127) MethylishLog(ERROR, "runThatCommand(2): Unknown command %s", commandFromConsole);
+                if(lastStatus == 127) MethylishLog(ERROR, "runThatCommand(4)", "Unknown command %s", commandFromConsole);
             }
         }
     }
@@ -86,76 +84,63 @@ void runThatCommand(void) {
 
 void safeClean(void* Pointer) {
     if(Pointer) free(Pointer);
-    else MethylishLog(ERROR, "safeClean(): Failed to clear the memory of the given variable, reason: \"NULL\" ");
+    else MethylishLog(ERROR, "safeClean()", "Failed to clear the memory of the given variable, reason: \"NULL\" ");
 }
 
-void abortInstance(const char* message) {
-    MethylishLog(ABORT, message);
+void abortInstance(const char *service, const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    MethylishLog(ABORT, service, format);
+    va_end(args);
     safeClean((void**)HostAndUserName);
     exit(EXIT_FAILURE);
 }
 
-void MethylishLog(enum elogLevel Log, const char *message, ...) {
+void MethylishLog(enum elogLevel loglevel, const char *service, const char *message, ...) {
     va_list args;
     va_start(args, message);
-    FILE *outputPath;
+    FILE *out = NULL;
+    bool toFile = false;
     if(throwLogsToSTD) {
-        if(Log == WARN || Log == ERROR || Log == DEBUG) outputPath = stderr;
-        else outputPath = stdout;
-        switch(Log) {
-            case INFO:
-                fprintf(outputPath, "[\e[1;34mINFO\e[0m] ");
-            break;
-            case WARN:
-                fprintf(outputPath, "[\e[1;33mWARNING\e[0m] ");
-            break;
-            case ERROR:
-                fprintf(outputPath, "[\e[1;31mERROR\e[0m] ");
-            break;
-            case DEBUG:
-                fprintf(outputPath, "[\e[1;32mDEBUG\e[0m] ");
-            break;
-            case ABORT:
-                fprintf(outputPath, "[\e[1;35mABORT\e[0m] ");
-            break;
-            default:
-                fprintf(outputPath, "[\e[1;34mUNKNOWN\e[0m] ");
-        }
+        out = stdout;
+        if(loglevel == ERROR || loglevel == WARN || loglevel == DEBUG || loglevel == ABORT) out = stderr;
     }
     else {
-        outputPath = fopen(logfile, "a");
-        if(!outputPath) {
-            va_end(args);
-            abortInstance("MethylishLog(): Failed to setup MethylishLog function, exiting..");
-        }
-        switch(Log) {
-            case INFO:
-                fprintf(outputPath, "INFO: ");
-            break;
-            case WARN:
-                fprintf(outputPath, "WARN: ");
-            break;
-            case ERROR:
-                fprintf(outputPath, "ERROR: ");
-            break;
-            case DEBUG:
-                fprintf(outputPath, "DEBUG: ");
-            break;
-            case ABORT:
-                fprintf(outputPath, "ABORT: ");
-            break;
-            default:
-                fprintf(outputPath, "UNKNOWN: ");
-        }
+        out = fopen(logfile, "a");
+        if(!out) exit(EXIT_FAILURE);
+        toFile = true;
     }
-    vfprintf(outputPath, message, args);
-    fprintf(outputPath, "\n");
-    if(!throwLogsToSTD) fclose(outputPath);
+    switch(loglevel) {
+        case INFO:
+            if(!toFile) fprintf(out, "\033[2;30;47mINFO: ");
+            else fprintf(out, "INFO: %s: ", service);
+        break;
+        case WARN:
+            if(!toFile) fprintf(out, "\033[1;33mWARNING: ");
+            else fprintf(out, "WARNING: %s: ", service);
+        break;
+        case DEBUG:
+            if(!toFile) fprintf(out, "\033[0;36mDEBUG: ");
+            else fprintf(out, "DEBUG: %s: ", service);
+        break;
+        case ERROR:
+            if(!toFile) fprintf(out, "\033[0;31mERROR: ");
+            else fprintf(out, "ERROR: %s: ", service);
+        break;
+        case ABORT:
+            if(!toFile) fprintf(out, "\033[0;31mABORT: ");
+            else fprintf(out, "ABORT: %s: ", service);
+        break;
+    }
+    vfprintf(out, message, args);
+    if(!toFile) fprintf(out, "\033[0m\n");
+    else fprintf(out, "\n");
+    if(!throwLogsToSTD && out) fclose(out);
     va_end(args);
 }
 
 void handle_sigint(int signum) {
-    MethylishLog(DEBUG, "handle_sigint(0): signum: %d", signum);
-    if(signum == 2) MethylishLog(INFO, "handle_sigint(1): User force-closed the application.");
-    abortInstance("Closing the program...");
+    MethylishLog(DEBUG, "handle_sigint(0)", "signum: %d", signum);
+    if(signum == 2) MethylishLog(INFO, "handle_sigint(1)", "User force-closed the application.");
+    abortInstance("handle_sigint(2)", "Closing the program...");
 }

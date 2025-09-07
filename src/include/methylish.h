@@ -16,7 +16,6 @@ extern const char *logfile;
 
 // enums! yes!
 enum elogLevel {
-    CLEAR,
     INFO,
     WARN,
     ERROR,
@@ -28,6 +27,6 @@ enum elogLevel {
 char *getCommandFromUserConsole(void);
 void runThatCommand(void);
 void safeClean(void* Pointer);
-void abortInstance(const char* message);
-void MethylishLog(enum elogLevel Log, const char *message, ...);
+void abortInstance(const char *service, const char *format, ...);
+void MethylishLog(enum elogLevel loglevel, const char *service, const char *message, ...);
 void handle_sigint(int signum);

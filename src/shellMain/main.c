@@ -15,12 +15,12 @@ bool throwLogsToSTD = false;
 int main() {
     FILE *clearTheLogFile = fopen(logfile, "w");
     if(clearTheLogFile) fclose(clearTheLogFile);
-    MethylishLog(INFO, "main(0): init: Methylish started!!");
+    MethylishLog(INFO, "main-init", "Methylish started!!");
     HostAndUserName = malloc(100);
     if(HostAndUserName == NULL) exit(EXIT_FAILURE);
     FILE *fp = popen("echo $(whoami)@$(hostname)", "r");
     if(fp == NULL) {
-        MethylishLog(ERROR, "main(1): Failed to fetch host and username.");
+        MethylishLog(ERROR, "main", "Failed to fetch host and username.");
         free(HostAndUserName);
         exit(EXIT_FAILURE);
     }
