@@ -57,6 +57,33 @@ void runThatCommand(void) {
         printf("%s", text);
         safeClean((void**)text);
     }
+    else if(strncmp(commandFromConsole, "childExec", 9) == 0) {
+        char *cmdLine = commandFromConsole + 10;
+        char *args[64];
+        int argc = 0;
+        char *token = strtok(cmdLine, " ");
+        while(token != NULL && argc < 63) {
+            args[argc++] = token;
+            token = strtok(NULL, " ");
+        }
+        args[argc] = NULL;
+        char *scriptFile = args[0];
+        pid_t pid = fork();
+        if(pid < 0) MethylishLog(ERROR, "runthatCommand(2)", "Failed to fork child process.");
+        else if(pid == 0) {
+            execv(scriptFile, args);
+            MethylishLog(ERROR, "runthatCommand(3)", "Failed to execute %s", scriptFile);
+            exit(EXIT_FAILURE);
+        }
+        else {
+            int status;
+            waitpid(pid, &status, 0);
+            if(WIFEXITED(status)) {
+                lastStatus = WEXITSTATUS(status);
+                MethylishLog(DEBUG, "runthatCommand(4)", "Script exited with status %d", lastStatus);
+            }
+        }
+    }
     else if(strcmp(commandFromConsole, "lastReturnCode") == 0 || strcmp(commandFromConsole, "lastReturnStatus") == 0) printf("%d\n", lastStatus);
     else if(strncmp(commandFromConsole, "clear", 5) == 0 || strncmp(commandFromConsole, "cls", 3) == 0) printf("\033c\n");
     else if(strncmp(commandFromConsole, "pwd", 3) == 0 || strncmp(commandFromConsole, "cwd", 3) == 0) {

@@ -24,7 +24,7 @@ int main() {
         free(HostAndUserName);
         exit(EXIT_FAILURE);
     }
-    if(fgets(HostAndUserName, 100, fp) != NULL) {
+    if(fgets(HostAndUserName, sizeof(char), fp) != NULL) {
         size_t len = strlen(HostAndUserName);
         if(len > 0 && HostAndUserName[len - 1] == '\n') HostAndUserName[len - 1] = '\0';
     }
