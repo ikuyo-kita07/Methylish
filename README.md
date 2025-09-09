@@ -16,3 +16,4 @@ make methylish
 - **cd**: Changes the current directory.
 - **clear|cls**: Clears the terminal screen.
 - **pwd|cwd**: Prints the current working directory.
+- **childExec**: Executes a script or a binary under a child fork with given arguments.
