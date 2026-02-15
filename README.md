@@ -1,4 +1,4 @@
-![methyl-banner](https://github.com/bocchi-the-dev/banners/blob/main/methylish.banner.png?raw=true)
+![methyl-banner](https://github.com/ikuyo-kita07/banners/blob/main/methylish.banner.png?raw=true)
 
 # Methylish
 
